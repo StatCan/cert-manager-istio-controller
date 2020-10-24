@@ -4,6 +4,8 @@
 
 Configure Istio to perform HTTP validation of cert-manager requests.
 
+Based on https://github.com/kubernetes/sample-controller
+
 ### How to Contribute
 
 See [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -19,6 +21,8 @@ ______________________
 ## Contrôleur d'Istio pour Cert Manager
 
 Configurez Istio pour effectuer la validation HTTP des requêtes cert-manager.
+
+Basé sur https://github.com/kubernetes/sample-controller
 
 ### Comment contribuer
 
