@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -12,17 +13,18 @@ import (
 	istionetworkinginformers "istio.io/client-go/pkg/informers/externalversions/networking/v1beta1"
 	istionetworkinglisters "istio.io/client-go/pkg/listers/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	networkinginformers "k8s.io/client-go/informers/networking/v1beta1"
+	networkinginformers "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	networkinglisters "k8s.io/client-go/listers/networking/v1beta1"
+	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -168,6 +170,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Get the ingress object
 	ingress, err := c.ingressesLister.Ingresses(namespace).Get(name)
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 			utilruntime.HandleError(fmt.Errorf("ingress %q in work queue no longer exists", key))
@@ -219,7 +222,7 @@ func (c *Controller) enqueueIngress(obj interface{}) {
 	c.workqueue.Add(key)
 }
 
-func (c *Controller) handleVirtualService(ingress *networkingv1beta1.Ingress) error {
+func (c *Controller) handleVirtualService(ingress *networkingv1.Ingress) error {
 	// Find a virtual service with the same labels
 	selector := labels.Set(ingress.ObjectMeta.Labels).AsSelector()
 	virtualServices, err := c.virtualServicesListers.VirtualServices(ingress.Namespace).List(selector)
@@ -229,8 +232,8 @@ func (c *Controller) handleVirtualService(ingress *networkingv1beta1.Ingress) er
 
 	host := ingress.Spec.Rules[0].Host
 	path := ingress.Spec.Rules[0].HTTP.Paths[0].Path
-	serviceName := ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName
-	servicePort := ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort
+	serviceName := ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name
+	servicePort := ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port
 
 	// We should at most 1 virtuual services which matches
 	if len(virtualServices) > 1 {
@@ -299,7 +302,7 @@ func (c *Controller) handleVirtualService(ingress *networkingv1beta1.Ingress) er
 							Destination: &v1beta1.Destination{
 								Host: serviceName,
 								Port: &v1beta1.PortSelector{
-									Number: uint32(servicePort.IntValue()),
+									Number: uint32(servicePort.Number),
 								},
 							},
 						},
@@ -311,7 +314,11 @@ func (c *Controller) handleVirtualService(ingress *networkingv1beta1.Ingress) er
 
 	if len(virtualServices) == 0 {
 		klog.Infof("creating VirtualService for ingress %s/%s", ingress.Namespace, ingress.Name)
-		newVirtualService, err = c.istioclientset.NetworkingV1beta1().VirtualServices(ingress.Namespace).Create(newVirtualService)
+
+		var ctx context.Context
+		var options v1.CreateOptions
+		newVirtualService, err = c.istioclientset.NetworkingV1beta1().VirtualServices(ingress.Namespace).Create(ctx, newVirtualService, options)
+
 		if err != nil {
 			return fmt.Errorf("failed to create VirtualService: %v", err)
 		}
@@ -325,19 +332,22 @@ func (c *Controller) handleVirtualService(ingress *networkingv1beta1.Ingress) er
 			existingVirtualService.Spec.Hosts[0] != host,
 			existingVirtualService.Spec.Http[0].Match[0].Uri.GetExact() != path,
 			existingVirtualService.Spec.Http[0].Route[0].Destination.Host != host,
-			existingVirtualService.Spec.Http[0].Route[0].Destination.Port.Number != uint32(servicePort.IntValue()))
+			existingVirtualService.Spec.Http[0].Route[0].Destination.Port.Number != uint32(servicePort.Number))
 
 		// TODO: Handle nil values
 		if !stringArrayEquals(existingVirtualService.Spec.Gateways, gateways) ||
 			existingVirtualService.Spec.Hosts[0] != host ||
 			existingVirtualService.Spec.Http[0].Match[0].Uri.GetExact() != path ||
 			existingVirtualService.Spec.Http[0].Route[0].Destination.Host != serviceName ||
-			existingVirtualService.Spec.Http[0].Route[0].Destination.Port.Number != uint32(servicePort.IntValue()) {
+			existingVirtualService.Spec.Http[0].Route[0].Destination.Port.Number != uint32(servicePort.Number) {
 			klog.Infof("updating VirtualService %s/%s", existingVirtualService.Namespace, existingVirtualService.Name)
 
 			existingVirtualService.Spec = newVirtualService.Spec
 
-			newVirtualService, err = c.istioclientset.NetworkingV1beta1().VirtualServices(ingress.Namespace).Update(existingVirtualService)
+			var ctx context.Context
+			var options v1.UpdateOptions
+			newVirtualService, err = c.istioclientset.NetworkingV1beta1().VirtualServices(ingress.Namespace).Update(ctx, existingVirtualService, options)
+
 			if err != nil {
 				return err
 			}
@@ -373,7 +383,7 @@ func stringArrayEquals(a, b []string) bool {
 	return true
 }
 
-func (c *Controller) handleDestinationRule(ingress *networkingv1beta1.Ingress) error {
+func (c *Controller) handleDestinationRule(ingress *networkingv1.Ingress) error {
 	// Find a destination rule with the same labels
 	selector := labels.Set(ingress.ObjectMeta.Labels).AsSelector()
 	destinationRules, err := c.destinationRuleLister.DestinationRules(ingress.Namespace).List(selector)
@@ -394,10 +404,10 @@ func (c *Controller) handleDestinationRule(ingress *networkingv1beta1.Ingress) e
 			Labels:          ingress.Labels,
 		},
 		Spec: v1beta1.DestinationRule{
-			Host: fmt.Sprintf("%s.%s.svc.%s", ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName, ingress.Namespace, c.clusterDomain),
+			Host: fmt.Sprintf("%s.%s.svc.%s", ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name, ingress.Namespace, c.clusterDomain),
 			TrafficPolicy: &v1beta1.TrafficPolicy{
-				Tls: &v1beta1.TLSSettings{
-					Mode: v1beta1.TLSSettings_DISABLE,
+				Tls: &v1beta1.ClientTLSSettings{
+					Mode: v1beta1.ClientTLSSettings_DISABLE,
 				},
 			},
 		},
@@ -406,7 +416,10 @@ func (c *Controller) handleDestinationRule(ingress *networkingv1beta1.Ingress) e
 	// If there are no destination rules, then lets create one
 	if len(destinationRules) == 0 {
 		klog.Infof("creating DestinationRule for ingress %s/%s", ingress.Namespace, ingress.Name)
-		newDestinationRule, err = c.istioclientset.NetworkingV1beta1().DestinationRules(ingress.Namespace).Create(newDestinationRule)
+
+		var ctx context.Context
+		var options v1.CreateOptions
+		newDestinationRule, err = c.istioclientset.NetworkingV1beta1().DestinationRules(ingress.Namespace).Create(ctx, newDestinationRule, options)
 		if err != nil {
 			return fmt.Errorf("failed to create DestinationRule: %v", err)
 		}
@@ -419,7 +432,9 @@ func (c *Controller) handleDestinationRule(ingress *networkingv1beta1.Ingress) e
 			klog.Infof("updating DestinationRule %s/%s", existingDestinationRule.Namespace, existingDestinationRule.Name)
 			newDestinationRule.Name = existingDestinationRule.Name
 
-			newDestinationRule, err = c.istioclientset.NetworkingV1beta1().DestinationRules(ingress.Namespace).Update(newDestinationRule)
+			var ctx context.Context
+			var options v1.UpdateOptions
+			newDestinationRule, err = c.istioclientset.NetworkingV1beta1().DestinationRules(ingress.Namespace).Update(ctx, newDestinationRule, options)
 			if err != nil {
 				return err
 			}

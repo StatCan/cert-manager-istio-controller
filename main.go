@@ -4,8 +4,9 @@ import (
 	"flag"
 	"time"
 
-	"github.com/StatCan/cert-manager-istio-controller/pkg/controller"
-	"github.com/StatCan/cert-manager-istio-controller/pkg/signals"
+	"StatCan/cert-manager-istio-controller/pkg/controller"
+	"StatCan/cert-manager-istio-controller/pkg/signals"
+
 	istio "istio.io/client-go/pkg/clientset/versioned"
 	istioinformers "istio.io/client-go/pkg/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
@@ -50,7 +51,7 @@ func main() {
 		istioclient,
 		clusterDomain,
 		defaultGateway,
-		kubeInformerFactory.Networking().V1beta1().Ingresses(),
+		kubeInformerFactory.Networking().V1().Ingresses(),
 		istioInformerFactory.Networking().V1beta1().VirtualServices(),
 		istioInformerFactory.Networking().V1beta1().DestinationRules())
 
