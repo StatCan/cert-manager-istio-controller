@@ -331,7 +331,7 @@ func (c *Controller) handleVirtualService(ingress *networkingv1.Ingress) error {
 			existingVirtualService.Spec.Hosts[0] != host,
 			existingVirtualService.Spec.Http[0].Match[0].Uri.GetExact() != path,
 			existingVirtualService.Spec.Http[0].Route[0].Destination.Host != host,
-			existingVirtualService.Spec.Http[0].Route[0].Destination.Port.Number != uint32(servicePort.Number))
+			existingVirtualService.Spec.Http[0].Route[0].Destination.Port.Number != servicePort.Number)
 
 		// TODO: Handle nil values
 		if !stringArrayEquals(existingVirtualService.Spec.Gateways, gateways) ||
