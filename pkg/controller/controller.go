@@ -302,7 +302,7 @@ func (c *Controller) handleVirtualService(ingress *networkingv1.Ingress) error {
 							Destination: &v1beta1.Destination{
 								Host: serviceName,
 								Port: &v1beta1.PortSelector{
-									Number: uint32(servicePort.Number),
+									Number: servicePort.Number,
 								},
 							},
 						},
