@@ -315,9 +315,8 @@ func (c *Controller) handleVirtualService(ingress *networkingv1.Ingress) error {
 	if len(virtualServices) == 0 {
 		klog.Infof("creating VirtualService for ingress %s/%s", ingress.Namespace, ingress.Name)
 
-		var ctx context.Context
-		var options v1.CreateOptions
-		newVirtualService, err = c.istioclientset.NetworkingV1beta1().VirtualServices(ingress.Namespace).Create(ctx, newVirtualService, options)
+		ctx := context.Background()
+		newVirtualService, err = c.istioclientset.NetworkingV1beta1().VirtualServices(ingress.Namespace).Create(ctx, newVirtualService, v1.CreateOptions{})
 
 		if err != nil {
 			return fmt.Errorf("failed to create VirtualService: %v", err)
@@ -344,9 +343,8 @@ func (c *Controller) handleVirtualService(ingress *networkingv1.Ingress) error {
 
 			existingVirtualService.Spec = newVirtualService.Spec
 
-			var ctx context.Context
-			var options v1.UpdateOptions
-			newVirtualService, err = c.istioclientset.NetworkingV1beta1().VirtualServices(ingress.Namespace).Update(ctx, existingVirtualService, options)
+			ctx := context.Background()
+			newVirtualService, err = c.istioclientset.NetworkingV1beta1().VirtualServices(ingress.Namespace).Update(ctx, existingVirtualService, v1.UpdateOptions{})
 
 			if err != nil {
 				return err
@@ -417,9 +415,8 @@ func (c *Controller) handleDestinationRule(ingress *networkingv1.Ingress) error 
 	if len(destinationRules) == 0 {
 		klog.Infof("creating DestinationRule for ingress %s/%s", ingress.Namespace, ingress.Name)
 
-		var ctx context.Context
-		var options v1.CreateOptions
-		newDestinationRule, err = c.istioclientset.NetworkingV1beta1().DestinationRules(ingress.Namespace).Create(ctx, newDestinationRule, options)
+		ctx := context.Background()
+		newDestinationRule, err = c.istioclientset.NetworkingV1beta1().DestinationRules(ingress.Namespace).Create(ctx, newDestinationRule, v1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to create DestinationRule: %v", err)
 		}
@@ -432,9 +429,8 @@ func (c *Controller) handleDestinationRule(ingress *networkingv1.Ingress) error 
 			klog.Infof("updating DestinationRule %s/%s", existingDestinationRule.Namespace, existingDestinationRule.Name)
 			newDestinationRule.Name = existingDestinationRule.Name
 
-			var ctx context.Context
-			var options v1.UpdateOptions
-			newDestinationRule, err = c.istioclientset.NetworkingV1beta1().DestinationRules(ingress.Namespace).Update(ctx, newDestinationRule, options)
+			ctx := context.Background()
+			newDestinationRule, err = c.istioclientset.NetworkingV1beta1().DestinationRules(ingress.Namespace).Update(ctx, newDestinationRule, v1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
