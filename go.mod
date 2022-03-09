@@ -1,4 +1,4 @@
-module StatCan/cert-manager-istio-controller
+module github.com/StatCan/cert-manager-istio-controller
 
 go 1.17
 

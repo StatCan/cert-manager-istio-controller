@@ -4,8 +4,8 @@ import (
 	"flag"
 	"time"
 
-	"StatCan/cert-manager-istio-controller/pkg/controller"
-	"StatCan/cert-manager-istio-controller/pkg/signals"
+	"github.com/StatCan/cert-manager-istio-controller/pkg/controller"
+	"github.com/StatCan/cert-manager-istio-controller/pkg/signals"
 
 	istio "istio.io/client-go/pkg/clientset/versioned"
 	istioinformers "istio.io/client-go/pkg/informers/externalversions"
