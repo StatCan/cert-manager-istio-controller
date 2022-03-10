@@ -302,7 +302,7 @@ func (c *Controller) handleVirtualService(ingress *networkingv1.Ingress) error {
 							Destination: &v1beta1.Destination{
 								Host: serviceName,
 								Port: &v1beta1.PortSelector{
-									Number: servicePort.Number,
+									Number: uint32(servicePort.Number),
 								},
 							},
 						},
@@ -338,7 +338,7 @@ func (c *Controller) handleVirtualService(ingress *networkingv1.Ingress) error {
 			existingVirtualService.Spec.Hosts[0] != host ||
 			existingVirtualService.Spec.Http[0].Match[0].Uri.GetExact() != path ||
 			existingVirtualService.Spec.Http[0].Route[0].Destination.Host != serviceName ||
-			existingVirtualService.Spec.Http[0].Route[0].Destination.Port.Number != servicePort {
+			existingVirtualService.Spec.Http[0].Route[0].Destination.Port.Number != uint32(servicePort.Number) {
 			klog.Infof("updating VirtualService %s/%s", existingVirtualService.Namespace, existingVirtualService.Name)
 
 			existingVirtualService.Spec = newVirtualService.Spec
